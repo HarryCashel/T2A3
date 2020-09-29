@@ -17,6 +17,7 @@ class PkceAuthCode(object):
     Creates an access code and exchanges that code for an access token
     """
     access_token = None
+    refresh_token = None
     client_id = client_id
     client_secret = client_secret
     token_is_expired = None
@@ -121,6 +122,10 @@ class PkceAuthCode(object):
         return data
 
     def get_access_token(self):
+        """
+        A function only called in refresh_access_token.
+        Used to request the initial auth token
+        """
         access_token_url = self.access_token_url
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
@@ -134,29 +139,52 @@ class PkceAuthCode(object):
             now = datetime.datetime.now()
             access_token = access_token_response['access_token']
             self.access_token = access_token
+            self.refresh_token = access_token_response['refresh_token']
             access_token_type = access_token_response['token_type']
             access_token_expiry = access_token_response['expires_in']
             token_expires = now + datetime.timedelta(seconds=access_token_expiry)
             self.access_token_expiry = token_expires
             self.token_is_expired = token_expires < now  # returns True if token has expired
             return True
+            # return access_token_response
         raise Exception("Could not Authenticate, please check credentials")
 
     def refresh_access_token(self):
-        auth_success = self.get_auth()
+        auth_success = self.get_access_token()
         if not auth_success:
             raise Exception("Authentication failed")
         token = self.access_token
         expired = self.access_token_expiry
         now = datetime.datetime.now()
         if expired < now:
-            self.get_auth()
+            self.get_access_token()
             return self.refresh_access_token()
         return token
+
+    def new_access_token(self):
+        client_id = self.client_id
+        refresh_token = self.refresh_token
+        access_token_url = self.access_token_url
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        data = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id
+        }
+        request = requests.post(access_token_url, data=data, headers=headers)
+        refresh_token_response = request.json()
+        self.access_token = refresh_token_response['access_token']
+        self.refresh_token = refresh_token_response['refresh_token']
+        return self.access_token
 
 
 client = PkceAuthCode()
 # print(client.get_auth())
 client.open_auth()
 # print(client.get_access_token_body())
-print(client.get_access_token())
+# print(client.get_access_token())
+print(client.refresh_access_token())
+print(client.new_access_token())
+print(client.new_access_token())
