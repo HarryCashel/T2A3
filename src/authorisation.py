@@ -1,13 +1,9 @@
-import requests
-import json
 import base64
 import datetime
-from time import sleep
-import urllib
-from urllib.parse import urlencode
-import pkce
-import urllib.request
+import json
 import webbrowser
+from urllib.parse import urlencode
+import requests
 from credentials import *
 
 
@@ -24,6 +20,7 @@ class PkceAuthCode(object):
     access_token_expiry = datetime.datetime.now()
     authorisation_uri = "https://accounts.spotify.com/authorize"
     access_token_url = "https://accounts.spotify.com/api/token"
+    search_url = "https://api.spotify.com/v1/search"
 
     def __init(self, *args, client_id, **kwargs):
         super().__init__(*args, **kwargs)
@@ -133,7 +130,7 @@ class PkceAuthCode(object):
 
         request = requests.post(access_token_url, data=self.get_access_token_body(), headers=headers)
         access_token_response = request.json()
-        valid_request = request.status_code in range(200,299)
+        valid_request = request.status_code in range(200, 299)
 
         if valid_request:
             now = datetime.datetime.now()
@@ -179,12 +176,167 @@ class PkceAuthCode(object):
         self.refresh_token = refresh_token_response['refresh_token']
         return self.access_token
 
+    def get_search_headers(self):
+        access_token = self.new_access_token()
+        headers = {
+            "Authorization": f"Bearer {access_token}"
+        }
+        return headers
+
+    def get_user_id(self):
+        base_url = "https://api.spotify.com/v1/me"
+        headers = self.get_search_headers()
+        request = requests.get(base_url, headers=headers)
+        response = request.text
+        parsed = json.loads(response)
+        return parsed['id']
+
+    def get_search_info(self, lookup_id, resource_type="artists", version="v1"):
+        base_url = "https://api.spotify.com"
+        endpoint = f"{base_url}/{version}/{resource_type}/{lookup_id}"
+        headers = self.get_search_headers()
+        request = requests.get(endpoint, headers=headers)
+        if request.status_code in range(200, 299):
+            return request.json()
+        raise Exception("Invalid request")
+
+    def get_album(self, album_id):
+        return self.get_search_info(album_id, resource_type="albums")
+
+    def get_artist(self, artist_id):
+        return self.get_search_info(artist_id, resource_type="artists")
+
+    def search(self, query, search_type="artist"):
+        """function that takes two strings and searches for information based on search type.
+        By default the search type is artist. Valid types are album , artist, playlist, track, show and episode.
+        """
+        headers = self.get_search_headers()
+        endpoint = "https://api.spotify.com/v1/search"
+        data = urlencode({"q": query, "type": search_type.lower()})
+        lookup_url = f"{endpoint}?{data}"
+        request = requests.get(lookup_url, headers=headers)
+        if request.status_code in range(200, 299):
+            data = request.text
+            parsed = json.loads(data)
+            return parsed
+            # return request.json()
+        raise Exception("Client side error")
+
+    def get_album_id(self, query, search_type="album"):
+        """A function that returns the track id of an album that we can use
+        to retrieve more information from the api
+        """
+        self.query = query
+        parsed = self.search(self.query, search_type="track")
+        album_id = parsed["tracks"]["items"][0]["album"]["id"]
+        return album_id
+
+    def get_artist_id(self):
+        pass
+
+    def search_track(self, query, search_type="track"):
+        """A function to search an track and return information about that track.
+        Takes a string as arguement, string should be the track name
+        """
+        self.query = query
+        parsed = self.search(self.query, search_type="track")
+
+        artist = parsed["tracks"]["items"][0]["album"]["artists"][0]["name"]
+        album = parsed["tracks"]["items"][0]["album"]["name"]
+        album_id = parsed["tracks"]["items"][0]["album"]["id"]
+        return f"Artist: {artist}\nAlbum: {album}"
+        # return album_id
+
+    def search_artist(self, query, search_type="artist"):
+        """A function to search an artist and return information about that artist.
+        Takes a string as arguement, string should be the artist name
+        """
+        self.query = query
+        parsed = self.search(self.query, search_type="artist")
+        # followers = parsed["artists"]["followers"]["total"]
+        followers = parsed["artists"]["items"][0]["followers"]["total"]
+        genres = parsed["artists"]["items"][0]["genres"]
+        return f"Followers: {followers}\nType of music: {', '.join(genres)}"
+
+    def search_album(self, query, search_type="album"):
+        """A function to search an album and return information about that album.
+        Takes a string as arguement, string should be the album name
+        """
+        self.query = query
+        parsed = self.search(self.query, search_type="album")
+        artist = parsed["albums"]["items"][0]["artists"][0]["name"]
+        release_date = parsed["albums"]["items"][0]["release_date"]
+        total_tracks = parsed["albums"]["items"][0]["total_tracks"]
+        # album_uri = parsed["albums"]["items"][0]["uri"]
+        return f"Artist: {artist}\nRelease Date: {release_date}\nTotal Tracks: {total_tracks}"
+
+    def get_album_tracks(self, query):
+        """Takes a string as arguement and returns a list of tracks in that album
+        """
+        self.query = query
+        album_id = self.get_album_id(query)
+        headers = self.get_search_headers()
+        endpoint = "https://api.spotify.com/v1/albums"
+        lookup_url = f"{endpoint}/{album_id}/tracks"
+        request = requests.get(lookup_url, headers=headers)
+        if request.status_code in range(200, 299):
+            data = request.text
+            parsed = json.loads(data)
+            # for i in parsed["items"]:
+            #     # for j in i:
+            #     #     print(j)
+            #     print(i["name"])
+            #     print()
+            track_list = [i["name"] for i in parsed["items"]]
+            return track_list
+
+
+    def create_playlist(self):
+        base_url = "/v1/users/{user_id}/playlists"
+
+    def change_playlist(self):
+        base_url = "/v1/playlists/{playlist_id}"
+
+    def add_to_playlist(self):
+        base_url = "/v1/playlists/{playlist_id}/tracks"
+
+    def view_playlists(self):
+        base_url = f"https://api.spotify.com/v1/users/{self.get_user_id()}/playlists"
+        headers = self.get_search_headers()
+        request = requests.get(base_url, headers=headers)
+        response = request.text
+        data = json.loads(response)
+        playlists = []
+        # for i in range(len(data['items'])):
+        #     print(i)
+        #         # playlists.append(i['name'])
+        #     # for key, value in data['items'][1].items():
+        #     #     if key == 'name':
+        #     #         playlists.append(value)
+        #     # return playlists
+        for i in data['items']:
+            if i['name']:
+                playlists.append(i['name'])
+        return playlists
+
+
+    def view_playlist(self):
+        base_url = "/v1/playlists/{playlist_id}"
+
+    def view_playlist_tracks(self):
+        base_url = "/v1/playlists/{playlist_id}/tracks"
+
 
 client = PkceAuthCode()
 # print(client.get_auth())
 client.open_auth()
-# print(client.get_access_token_body())
-# print(client.get_access_token())
-print(client.refresh_access_token())
-print(client.new_access_token())
-print(client.new_access_token())
+client.refresh_access_token()
+# print(client.search("eminem"))
+# print(client.get_user_id())
+
+print(client.view_playlists())
+# print(client.search_artist("eminem"))
+# print(client.new_access_token())
+# print(client.search_track("so much better"))
+# print(client.new_access_token())
+# print(client.get_album_tracks("The Marshall Mathers LP2"))
