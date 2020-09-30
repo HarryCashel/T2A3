@@ -77,34 +77,6 @@ class PkceAuthCode(object):
         lookup_url = self.get_auth_uri()
         webbrowser.open_new(lookup_url)
 
-    # def get_auth(self):
-    #     access_token_url = self.access_token_url
-    #     access_token_data = self.get_access_token_data()
-    #     access_token_headers = self.get_access_token_headers()
-    #     request = requests.post(access_token_url, data=access_token_data, headers=access_token_headers)
-    #     # print(request.json())
-    #     valid_request = request.status_code in range(200, 299)
-    #     return request.status_code
-    #     # access_token_response = request.json()
-    #
-    #     if valid_request:
-    #         now = datetime.datetime.now()
-    #         access_token = access_token_response['access_token']
-    #         self.access_token = access_token
-    #         access_token_type = access_token_response['token_type']
-    #         access_token_expiry = access_token_response['expires_in']
-    #         token_expires = now + datetime.timedelta(seconds=access_token_expiry)
-    #         self.access_token_expiry = token_expires
-    #         self.token_is_expired = token_expires < now  # returns True if token has expired
-    #         return True
-    # raise Exception("Could not Authenticate, please check credentials")
-
-    # @staticmethod
-    # def access_token_headers():
-    #     return {
-    #         "Content-Type": "application/x-www-form-urlencoded"
-    #     }
-
     def get_access_token_body(self):
         client_id = self.client_id
         auth_code = input("please copy the code")
@@ -137,7 +109,7 @@ class PkceAuthCode(object):
             access_token = access_token_response['access_token']
             self.access_token = access_token
             self.refresh_token = access_token_response['refresh_token']
-            access_token_type = access_token_response['token_type']
+            # access_token_type = access_token_response['token_type']
             access_token_expiry = access_token_response['expires_in']
             token_expires = now + datetime.timedelta(seconds=access_token_expiry)
             self.access_token_expiry = token_expires
@@ -243,13 +215,19 @@ class PkceAuthCode(object):
 
         artist = parsed["tracks"]["items"][0]["album"]["artists"][0]["name"]
         album = parsed["tracks"]["items"][0]["album"]["name"]
-        album_id = parsed["tracks"]["items"][0]["album"]["id"]
         return f"Artist: {artist}\nAlbum: {album}"
-        # return album_id
+
+    def search_track_id(self, query, search_type="track"):
+        """A function to return the uri of a song title, to use to save to a playlist we create
+        """
+        self.query = query
+        parsed = self.search(self.query, search_type="track")
+        track_uri = parsed["tracks"]["items"][0]['id']
+        return track_uri
 
     def search_artist(self, query, search_type="artist"):
         """A function to search an artist and return information about that artist.
-        Takes a string as arguement, string should be the artist name
+        Takes a string as argument, string should be the artist name
         """
         self.query = query
         parsed = self.search(self.query, search_type="artist")
@@ -260,7 +238,7 @@ class PkceAuthCode(object):
 
     def search_album(self, query, search_type="album"):
         """A function to search an album and return information about that album.
-        Takes a string as arguement, string should be the album name
+        Takes a string as argument, string should be the album name
         """
         self.query = query
         parsed = self.search(self.query, search_type="album")
@@ -271,7 +249,7 @@ class PkceAuthCode(object):
         return f"Artist: {artist}\nRelease Date: {release_date}\nTotal Tracks: {total_tracks}"
 
     def get_album_tracks(self, query):
-        """Takes a string as arguement and returns a list of tracks in that album
+        """Takes a string as argument and returns a list of tracks in that album
         """
         self.query = query
         album_id = self.get_album_id(query)
@@ -290,15 +268,46 @@ class PkceAuthCode(object):
             track_list = [i["name"] for i in parsed["items"]]
             return track_list
 
+    def create_playlist(self, playlist_name):
+        user_id = self.get_user_id()
+        base_url = f"https://api.spotify.com/v1/users/{user_id}/playlists"
+        headers = {
+            "Authorization": f"Bearer {self.new_access_token()}",
+            "Content-Type": "application/json"
+        }
+        body = json.dumps({
+            "name": f"{playlist_name}"
+        })
+        response = requests.post(url=base_url, data=body, headers=headers)
+        if response.status_code in range(200, 299):
+            return "Playlist created successfully"
 
-    def create_playlist(self):
-        base_url = "/v1/users/{user_id}/playlists"
-
-    def change_playlist(self):
-        base_url = "/v1/playlists/{playlist_id}"
+    def get_playlist_id(self):
+        base_url = "https://api.spotify.com/v1/me/playlists"
+        headers = {
+            "Authorization": f"Bearer {self.new_access_token()}"
+        }
+        response = requests.get(url=base_url, headers=headers)
+        data = json.loads(response.text)
+        names = [i['name'] for i in data['items']]
+        ids = [i['id'] for i in data['items']]
+        id_dictionary = dict(zip(names, ids))
+        return id_dictionary
 
     def add_to_playlist(self):
-        base_url = "/v1/playlists/{playlist_id}/tracks"
+        playlist = input("What playlist do you want to add to?")
+        playlist_id = self.get_playlist_id()[f"{playlist}"]
+        base_url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+        song_uri = self.search_track_id(input("What song would you like to add?"))
+        query = urlencode({"uris": f"spotify:track:{song_uri}"})
+        lookup_url = f"{base_url}?{query}"
+        headers = {
+            "Authorization": f"Bearer {self.new_access_token()}",
+            "Content-Type": "application/json"
+        }
+
+        request = requests.post(url=lookup_url, headers=headers)
+        return request
 
     def view_playlists(self):
         base_url = f"https://api.spotify.com/v1/users/{self.get_user_id()}/playlists"
@@ -307,36 +316,39 @@ class PkceAuthCode(object):
         response = request.text
         data = json.loads(response)
         playlists = []
-        # for i in range(len(data['items'])):
-        #     print(i)
-        #         # playlists.append(i['name'])
-        #     # for key, value in data['items'][1].items():
-        #     #     if key == 'name':
-        #     #         playlists.append(value)
-        #     # return playlists
         for i in data['items']:
             if i['name']:
                 playlists.append(i['name'])
         return playlists
 
-
     def view_playlist(self):
-        base_url = "/v1/playlists/{playlist_id}"
-
-    def view_playlist_tracks(self):
-        base_url = "/v1/playlists/{playlist_id}/tracks"
+        playlist = input("What playlist do you want to look at?\nNote playlists are case sensitive")
+        playlist_id = self.get_playlist_id()[f"{playlist}"]
+        base_url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+        headers = {"Authorization": f"Bearer {self.new_access_token()}"}
+        response = requests.get(url=base_url, headers=headers)
+        data = json.loads(response.text)
+        playlist_tracks = []
+        data = data['items']
+        for i in data:
+            if i['track']:
+                playlist_tracks.append(i['track']['name'])
+        return playlist_tracks
 
 
 client = PkceAuthCode()
 # print(client.get_auth())
 client.open_auth()
 client.refresh_access_token()
-# print(client.search("eminem"))
+print(client.search_track("Wet Dreamz"))
 # print(client.get_user_id())
-
-print(client.view_playlists())
+print(client.view_playlist())
+# print(client.view_playlists())
+# print(client.create_playlist(input("What would you like to name your playlist?")))
 # print(client.search_artist("eminem"))
 # print(client.new_access_token())
 # print(client.search_track("so much better"))
 # print(client.new_access_token())
 # print(client.get_album_tracks("The Marshall Mathers LP2"))
+# print(client.get_playlist_id()['lol'])
+# print(client.add_to_playlist())
