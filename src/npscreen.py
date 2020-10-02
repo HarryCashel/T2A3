@@ -215,4 +215,8 @@ def reset_windows():
 
 
 client = authorisation.PkceAuthCode()
-
+initialise()
+welcome()
+curses.wrapper(main)
+curses.endwin()
+clear()
