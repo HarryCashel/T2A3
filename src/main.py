@@ -1,8 +1,17 @@
-from authorisation import *
+import npyscreen
+import curses
+import authorisation
+from npscreen import *
 
-client = PkceAuthCode()
-# print(client.get_auth())
-client.open_auth()
-client.refresh_access_token()
-print(client.search_artist("eminem"))
-print(client.search_track("Butterflies"))
+print("Welcome to the Spotify App!")
+print("All the functionality of Spotify except you can't listen to music...yet!")
+print("If you're running this I will assume you have linked your Spotify account to a Spotify Developer account")
+print("Have your client id and client secret and we'll get started.")
+
+
+client = authorisation.PkceAuthCode()
+initialise()
+welcome()
+curses.wrapper(main)
+curses.endwin()
+clear()

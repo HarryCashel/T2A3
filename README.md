@@ -18,3 +18,4 @@ You will be required to enter the client_id and client_secret into the terminal.
 *urlencode  
 *requests  
 *pkce  
+*npyscreen

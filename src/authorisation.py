@@ -4,7 +4,9 @@ import json
 import webbrowser
 from urllib.parse import urlencode
 import requests
-from credentials import *
+import credentials
+import pkce
+import curses
 
 
 class PkceAuthCode(object):
@@ -14,17 +16,18 @@ class PkceAuthCode(object):
     """
     access_token = None
     refresh_token = None
-    client_id = client_id
-    client_secret = client_secret
     token_is_expired = None
     access_token_expiry = datetime.datetime.now()
     authorisation_uri = "https://accounts.spotify.com/authorize"
     access_token_url = "https://accounts.spotify.com/api/token"
     search_url = "https://api.spotify.com/v1/search"
 
-    def __init(self, *args, client_id, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.client_id = client_id
+        self.client_id = credentials.create_client_id()
+        self.client_secret = credentials.create_client_secret()
+        self.code_verifier = credentials.create_code_verifier()
+        self.code_challenge = pkce.get_code_challenge(self.code_verifier)
 
     def get_client_credentials(self):
         """
@@ -33,7 +36,6 @@ class PkceAuthCode(object):
         """
         client_id = self.client_id
         client_secret = self.client_secret
-        print(client_id)
         if client_id is None or client_secret is None:
             raise Exception("""Client id and client secret are not set or out of date
                             "https://developer.spotify.com/dashboard/applications""")
@@ -56,11 +58,11 @@ class PkceAuthCode(object):
     def get_auth_uri(self):
         authorisation_uri = self.authorisation_uri
         redirect_uri = "http://localhost:8888/callback"
-        data = urlencode({"client_id": client_id,
+        data = urlencode({"client_id": self.client_id,
                           "response_type": "code",
                           "redirect_uri": redirect_uri,
                           "code_challenge_method": "S256",
-                          "code_challenge": code_challenge,
+                          "code_challenge": self.code_challenge,
                           "scope": """
                           user-read-private 
                           playlist-modify-public 
@@ -86,7 +88,7 @@ class PkceAuthCode(object):
             "grant_type": "authorization_code",
             "code": auth_code,
             "redirect_uri": redirect_uri,
-            "code_verifier": code_verifier
+            "code_verifier": self.code_verifier
         }
         return data
 
@@ -191,7 +193,6 @@ class PkceAuthCode(object):
             data = request.text
             parsed = json.loads(data)
             return parsed
-            # return request.json()
         raise Exception("Client side error")
 
     def get_album_id(self, query, search_type="album"):
@@ -268,7 +269,8 @@ class PkceAuthCode(object):
             track_list = [i["name"] for i in parsed["items"]]
             return track_list
 
-    def create_playlist(self, playlist_name):
+    def create_playlist(self):
+        playlist_name = input("What would you like to name your playlist?\t")
         user_id = self.get_user_id()
         base_url = f"https://api.spotify.com/v1/users/{user_id}/playlists"
         headers = {
@@ -295,10 +297,11 @@ class PkceAuthCode(object):
         return id_dictionary
 
     def add_to_playlist(self):
-        playlist = input("What playlist do you want to add to?")
+        playlist = input("What playlist do you want to add to?\t")
         playlist_id = self.get_playlist_id()[f"{playlist}"]
         base_url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
-        song_uri = self.search_track_id(input("What song would you like to add?"))
+        song_to_add = input("What song would you like to add?")
+        song_uri = self.search_track_id(song_to_add)
         query = urlencode({"uris": f"spotify:track:{song_uri}"})
         lookup_url = f"{base_url}?{query}"
         headers = {
@@ -307,7 +310,7 @@ class PkceAuthCode(object):
         }
 
         request = requests.post(url=lookup_url, headers=headers)
-        return request
+        return f"{song_to_add} added to {playlist}"
 
     def view_playlists(self):
         base_url = f"https://api.spotify.com/v1/users/{self.get_user_id()}/playlists"
@@ -322,7 +325,7 @@ class PkceAuthCode(object):
         return playlists
 
     def view_playlist(self):
-        playlist = input("What playlist do you want to look at?\nNote playlists are case sensitive")
+        playlist = input("What playlist do you want to look at?\nNote playlists are case sensitive\t")
         playlist_id = self.get_playlist_id()[f"{playlist}"]
         base_url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
         headers = {"Authorization": f"Bearer {self.new_access_token()}"}
@@ -335,20 +338,3 @@ class PkceAuthCode(object):
                 playlist_tracks.append(i['track']['name'])
         return playlist_tracks
 
-
-client = PkceAuthCode()
-# print(client.get_auth())
-client.open_auth()
-client.refresh_access_token()
-print(client.search_track("Wet Dreamz"))
-# print(client.get_user_id())
-print(client.view_playlist())
-# print(client.view_playlists())
-# print(client.create_playlist(input("What would you like to name your playlist?")))
-# print(client.search_artist("eminem"))
-# print(client.new_access_token())
-# print(client.search_track("so much better"))
-# print(client.new_access_token())
-# print(client.get_album_tracks("The Marshall Mathers LP2"))
-# print(client.get_playlist_id()['lol'])
-# print(client.add_to_playlist())
