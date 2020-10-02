@@ -67,3 +67,21 @@ The overview HTTP functionality of the application is as follows:
 *requests  
 *pkce
 *curses
+
+
+###Set up
+Create a Spotify Developer account here https://developer.spotify.com/
+Keep your client id and client secret ready
+
+From you environment
+
+  `pip install -r requirements.txt`
+  
+From the root directory 
+
+  `python src/main.py`
+
+You will be asked to copy the code from the url of the webpage that pops up.
+Just copy and paste it into the terminal as you did for your client credentials.
+
+Navigate the menu with arrow keys and confirm with the return key.
