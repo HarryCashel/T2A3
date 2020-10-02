@@ -1,8 +1,6 @@
 import unittest
-from src.authorisation import *
-from src.main import *
-
-client = PkceAuthCode()
+from authorisation import *
+from main import *
 
 
 class TestStatusCodes(unittest.TestCase):
