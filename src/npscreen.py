@@ -213,6 +213,7 @@ def reset_windows():
     clear()
     curses.wrapper(main)
 
+
 client = authorisation.PkceAuthCode()
 # initialise()
 # welcome()
