@@ -29,9 +29,7 @@ jobs:
           with:
             #IP address of EC2 instance
             host: 3.13.45.12
-            #User you created on the EC2 instance
             username: github-actions
-            #Name of the secrets variable where you put your secret key
             key: ${{ secrets.SSH_KEY }}
             port: 22
             script: |
