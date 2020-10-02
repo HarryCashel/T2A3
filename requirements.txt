@@ -1,0 +1,6 @@
+pip==20.2.3
+setuptools==50.3.0
+requests==2.24.0
+pkce==1.0
+pytz~=2020.1
+tzlocal~=2.1

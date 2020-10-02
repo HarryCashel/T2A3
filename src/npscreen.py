@@ -1,4 +1,3 @@
-
 import authorisation
 import curses
 import time
@@ -214,10 +213,9 @@ def reset_windows():
     clear()
     curses.wrapper(main)
 
-
 client = authorisation.PkceAuthCode()
-initialise()
-welcome()
-curses.wrapper(main)
-curses.endwin()
-clear()
+# initialise()
+# welcome()
+# curses.wrapper(main)
+# curses.endwin()
+# clear()

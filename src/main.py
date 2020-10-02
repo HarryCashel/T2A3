@@ -1,6 +1,3 @@
-import npyscreen
-import curses
-import authorisation
 from npscreen import *
 
 print("Welcome to the Spotify App!")

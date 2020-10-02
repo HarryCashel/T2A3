@@ -6,7 +6,6 @@ from urllib.parse import urlencode
 import requests
 import credentials
 import pkce
-import curses
 
 
 class PkceAuthCode(object):
